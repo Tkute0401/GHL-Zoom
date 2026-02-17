@@ -35,7 +35,9 @@ app.post('/ghl-webhook', async (req, res) => {
     const data = req.body;
     console.log('📨 Received GHL Webhook:', JSON.stringify(data, null, 2));
 
-    const { contactId, email, phone, firstName, lastName, locationId, zoom_tag } = data;
+    // Extract from customData if available (GHL Workflow Webhook Action structure)
+    const payload = data.customData || data;
+    const { contactId, email, phone, firstName, lastName, locationId, zoom_tag } = payload;
 
     if (!email && !contactId) {
       console.warn('⚠️  GHL Webhook missing email or contactId');
