@@ -188,28 +188,51 @@ async function handleRegistrationEvent(payload, eventType) {
     // 2. If not in DB, Search in GHL
     if (!contact) {
       console.log('🔍 Contact not in DB, searching GHL...');
-      const ghlContact = await searchGHLContact(email);
+      let ghlContact = null;
+      try {
+        ghlContact = await searchGHLContact(email);
+      } catch (err) {
+        console.error('⚠️ Critical GHL Search Error:', err.message);
+        // If 403, it's a permission error. We should NOT try to create, as it will likely fail or create dupes blindly.
+        if (err.response?.status === 403) {
+          console.error('🚨 PERMISSION DENIED: Check your GHL Access Token Scopes (contacts.readonly) and Location ID.');
+        }
+      }
 
       if (ghlContact) {
         console.log('✅ Found in GHL:', ghlContact.id);
         ghlContactId = ghlContact.id;
       } else {
-        // 3. If not in GHL, Create Contact
+        // 3. If not in GHL (and Search didn't explode with 403), Create Contact
         console.log('Mw Creating new GHL contact...');
-        const newContact = await createGHLContact(registrant);
-        ghlContactId = newContact.id;
-        console.log('✅ Created in GHL:', ghlContactId);
+        try {
+          const newContact = await createGHLContact(registrant);
+          ghlContactId = newContact.id;
+          console.log('✅ Created in GHL:', ghlContactId);
+        } catch (createErr) {
+          console.error('❌ Failed to create GHL Contact:', createErr.response?.data || createErr.message);
+          // If it failed because it exists (400), we missed it in search (maybe API lag or permission issue)
+          if (createErr.response?.status === 400 && createErr.response?.data?.meta?.contactId) {
+            console.log('⚠️ Contact actually exists (from 400 error), using ID:', createErr.response.data.meta.contactId);
+            ghlContactId = createErr.response.data.meta.contactId;
+          } else {
+            // Cannot proceed without GHL ID
+            throw createErr;
+          }
+        }
       }
 
-      // 4. Save to DB
-      contact = await Contact.create({
-        email,
-        ghlContactId,
-        firstName: registrant.first_name,
-        lastName: registrant.last_name,
-        phone: registrant.phone,
-        locationId: process.env.GHL_LOCATION_ID
-      });
+      // 4. Save to DB (only if we have an ID)
+      if (ghlContactId) {
+        contact = await Contact.create({
+          email,
+          ghlContactId,
+          firstName: registrant.first_name,
+          lastName: registrant.last_name,
+          phone: registrant.phone,
+          locationId: process.env.GHL_LOCATION_ID
+        });
+      }
     }
 
     // 5. Get Global Tag
@@ -250,8 +273,10 @@ async function searchGHLContact(email) {
     // API returns { contacts: [...] }
     return response.data.contacts?.[0] || null;
   } catch (error) {
-    console.error('GHL Search Error:', error.response?.data || error.message);
-    return null;
+    // console.error('GHL Search Error:', error.response?.data || error.message);
+    // Return null ONLY for 404 (not found). Throw others (403, 500)
+    if (error.response?.status === 404) return null;
+    throw error;
   }
 }
 
