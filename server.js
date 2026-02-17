@@ -135,10 +135,24 @@ app.post('/zoom-webhook', async (req, res) => {
     }
 
     // Idempotency Check
-    const eventId = payload?.object?.uuid || req.headers['x-zm-request-timestamp']; // Fallback ID
+    // ⚠️ CRITICAL FIX: payload.object.uuid is the MEETING UUID, which is same for all registrants!
+    // We must generate a unique ID for this specific *registration event*.
+    let eventId = req.headers['x-zm-request-timestamp']; // Default fallback
 
-    // Extract email for logging
+    const meetingId = payload?.object?.id;
+    // Extract email for logging & ID generation
     const registrantEmail = payload?.object?.registrant?.email || payload?.object?.email;
+
+    if (meetingId && registrantEmail) {
+      // Composite ID: MeetingID_Email_EventType
+      // This ensures different people registering for same meeting are NOT treated as duplicates.
+      eventId = `${meetingId}_${registrantEmail}_${event}`;
+    } else if (payload?.object?.uuid) {
+      // For non-registration events, Meeting UUID + Event Type might be enough
+      // eventId = `${payload.object.uuid}_${event}`;
+      // Actually, stick to timestamp/uuid for others to avoid breaking change
+      eventId = payload.object.uuid;
+    }
 
     if (eventId) {
       const existingEvent = await ZoomEvent.findOne({ eventId });
