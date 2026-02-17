@@ -136,13 +136,21 @@ app.post('/zoom-webhook', async (req, res) => {
 
     // Idempotency Check
     const eventId = payload?.object?.uuid || req.headers['x-zm-request-timestamp']; // Fallback ID
+
+    // Extract email for logging
+    const registrantEmail = payload?.object?.registrant?.email || payload?.object?.email;
+
     if (eventId) {
       const existingEvent = await ZoomEvent.findOne({ eventId });
       if (existingEvent) {
         console.log('Duplicate event, skipping:', eventId);
         return res.status(200).json({ message: 'Duplicate event' });
       }
-      await ZoomEvent.create({ eventId, eventType: event });
+      await ZoomEvent.create({
+        eventId,
+        eventType: event,
+        email: registrantEmail
+      });
     }
 
     // Process registration

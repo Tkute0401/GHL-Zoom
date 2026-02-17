@@ -10,6 +10,7 @@ const ZoomEventSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    email: String,
     processedAt: {
         type: Date,
         default: Date.now
