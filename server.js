@@ -37,7 +37,13 @@ app.post('/ghl-webhook', async (req, res) => {
 
     // Extract from customData if available (GHL Workflow Webhook Action structure)
     const payload = data.customData || data;
-    const { contactId, email, phone, firstName, lastName, locationId, zoom_tag } = payload;
+    let { contactId, email, phone, firstName, lastName, locationId, zoom_tag } = payload;
+
+    // Sanitize email: Convert empty string to undefined to avoid unique index issues
+    // 'undefined' means Mongoose won't include it in the update, avoiding conflicts with sparse indexes
+    if (typeof email === 'string' && email.trim() === '') {
+      email = undefined;
+    }
 
     if (!email && !contactId) {
       console.warn('⚠️  GHL Webhook missing email or contactId');
