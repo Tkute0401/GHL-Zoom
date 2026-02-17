@@ -33,7 +33,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.post('/ghl-webhook', async (req, res) => {
   try {
     const data = req.body;
-    console.log('📨 Received GHL Webhook:', JSON.stringify(data, null, 2));
+    console.log('📨 Received GHL Webhook:', JSON.stringify(data.customData, null, 2));
 
     // Extract from customData if available (GHL Workflow Webhook Action structure)
     const payload = data.customData || data;
