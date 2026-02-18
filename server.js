@@ -199,15 +199,14 @@ async function handleRegistrationEvent(payload, eventType) {
     let contact = await Contact.findOne({ email });
     let ghlContactId = contact?.ghlContactId;
 
-    // 2. If not in DB, Search in GHL
-    if (!contact) {
-      console.log('🔍 Contact not in DB, searching GHL...');
+    // 2. If not in DB, OR in DB but missing GHL ID, Search in GHL
+    if (!contact || !contact.ghlContactId) {
+      console.log('🔍 Contact ID missing locally (New or Unlinked), searching GHL...');
       let ghlContact = null;
       try {
         ghlContact = await searchGHLContact(email);
       } catch (err) {
         console.error('⚠️ Critical GHL Search Error:', err.message);
-        // If 403, it's a permission error. We should NOT try to create, as it will likely fail or create dupes blindly.
         if (err.response?.status === 403) {
           console.error('🚨 PERMISSION DENIED: Check your GHL Access Token Scopes (contacts.readonly) and Location ID.');
         }
@@ -230,22 +229,29 @@ async function handleRegistrationEvent(payload, eventType) {
             console.log('⚠️ Contact actually exists (from 400 error), using ID:', createErr.response.data.meta.contactId);
             ghlContactId = createErr.response.data.meta.contactId;
           } else {
-            // Cannot proceed without GHL ID
-            throw createErr;
+            console.error('🛑 Could not resolve GHL Contact ID. Skipping tagging.');
+            return;
           }
         }
       }
 
-      // 4. Save to DB (only if we have an ID)
+      // 4. Save/Update to DB (only if we have an ID)
       if (ghlContactId) {
-        contact = await Contact.create({
-          email,
-          ghlContactId,
-          firstName: registrant.first_name,
-          lastName: registrant.last_name,
-          phone: registrant.phone,
-          locationId: process.env.GHL_LOCATION_ID
-        });
+        if (contact) {
+          // Contact exists but was unlinked -> Update it
+          await Contact.updateOne({ _id: contact._id }, { ghlContactId });
+          console.log('🔗 Linked existing local contact to GHL ID:', ghlContactId);
+        } else {
+          // Create new
+          contact = await Contact.create({
+            email,
+            ghlContactId,
+            firstName: registrant.first_name,
+            lastName: registrant.last_name,
+            phone: registrant.phone,
+            locationId: process.env.GHL_LOCATION_ID
+          });
+        }
       }
     }
 
