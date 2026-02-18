@@ -190,9 +190,24 @@ async function handleRegistrationEvent(payload, eventType) {
   if (!objectData) return;
 
   const registrant = objectData.registrant || objectData;
-  const email = registrant.email;
 
-  console.log(`📝 Processing registration for: ${email}`);
+  // Validate and Clean Inputs
+  let email = registrant.email || '';
+  if (typeof email === 'string') {
+    email = email.trim().toLowerCase();
+  }
+
+  let phone = registrant.phone || '';
+  if (typeof phone === 'string') {
+    phone = phone.trim();
+  }
+
+  if (!email) {
+    console.warn('⚠️  Skipping registration: Missing Email');
+    return;
+  }
+
+  console.log(`📝 Processing registration for: ${email} (Phone: ${phone || 'N/A'})`);
 
   try {
     // 1. Check Internal DB
@@ -288,12 +303,29 @@ async function handleRegistrationEvent(payload, eventType) {
 
 async function addContactToWorkflow(contactId, workflowId) {
   try {
+    // GHL requires format: YYYY-MM-DDTHH:mm:ss+HH:MM
+    // new Date().toISOString() gives ...Z (UTC), which GHL rejects with 422.
+    // We will manually format it to UTC with explicit +00:00 offset.
+    const now = new Date();
+    const pad = (n) => (n < 10 ? '0' + n : n);
+    const yyyy = now.getUTCFullYear();
+    const MM = pad(now.getUTCMonth() + 1);
+    const dd = pad(now.getUTCDate());
+    const HH = pad(now.getUTCHours());
+    const mm = pad(now.getUTCMinutes());
+    const ss = pad(now.getUTCSeconds());
+
+    // Explicitly append +00:00
+    const eventStartTime = `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}+00:00`;
+
     const response = await ghlAxios.post(`/contacts/${contactId}/workflow/${workflowId}`, {
-      "eventStartTime": new Date().toISOString()
+      "eventStartTime": eventStartTime
     });
     return response.data;
   } catch (error) {
     console.error('GHL Workflow Error:', error.response?.data || error.message);
+    // Don't throw here, strictly speaking, as it might block the main flow if not caught above. 
+    // But the caller catches it, so throwing is fine.
     throw error;
   }
 }
