@@ -276,7 +276,7 @@ async function handleRegistrationEvent(payload, eventType) {
 
     // 6. Apply Automation (Add Tags)
     // Requested: Add global tag, event type, AND 'zoom registered'
-    const tags = [globalTag, eventType, 'zoom registered'];
+    const tags = [globalTag, 'zoom registered'];
     console.log(`🏷️  Adding tags to contact ${ghlContactId}:`, tags);
     await addGHLTags(ghlContactId, tags);
 
