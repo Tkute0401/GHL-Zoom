@@ -281,16 +281,16 @@ async function handleRegistrationEvent(payload, eventType) {
     await addGHLTags(ghlContactId, tags);
 
     // 7. Trigger Logic (Workflow)
-    if (process.env.GHL_WORKFLOW_ID) {
-      console.log(`⚙️  Triggering Workflow (${process.env.GHL_WORKFLOW_ID}) for contact ${ghlContactId}...`);
-      try {
-        await addContactToWorkflow(ghlContactId, process.env.GHL_WORKFLOW_ID);
-        console.log('✅ Workflow Triggered Successfully');
-      } catch (wfError) {
-        console.error('❌ Workflow Trigger Failed:', wfError.message);
-        // Don't throw, just log. The contact is already saved/tagged.
-      }
-    }
+    // if (process.env.GHL_WORKFLOW_ID) {
+    //   console.log(`⚙️  Triggering Workflow (${process.env.GHL_WORKFLOW_ID}) for contact ${ghlContactId}...`);
+    //   try {
+    //     await addContactToWorkflow(ghlContactId, process.env.GHL_WORKFLOW_ID);
+    //     console.log('✅ Workflow Triggered Successfully');
+    //   } catch (wfError) {
+    //     console.error('❌ Workflow Trigger Failed:', wfError.message);
+    //     // Don't throw, just log. The contact is already saved/tagged.
+    //   }
+    // }
 
     console.log('🎉 processing complete for:', email);
 
@@ -301,34 +301,34 @@ async function handleRegistrationEvent(payload, eventType) {
 
 // ... existing code ...
 
-async function addContactToWorkflow(contactId, workflowId) {
-  try {
-    // GHL requires format: YYYY-MM-DDTHH:mm:ss+HH:MM
-    // new Date().toISOString() gives ...Z (UTC), which GHL rejects with 422.
-    // We will manually format it to UTC with explicit +00:00 offset.
-    const now = new Date();
-    const pad = (n) => (n < 10 ? '0' + n : n);
-    const yyyy = now.getUTCFullYear();
-    const MM = pad(now.getUTCMonth() + 1);
-    const dd = pad(now.getUTCDate());
-    const HH = pad(now.getUTCHours());
-    const mm = pad(now.getUTCMinutes());
-    const ss = pad(now.getUTCSeconds());
+// async function addContactToWorkflow(contactId, workflowId) {
+//   try {
+//     // GHL requires format: YYYY-MM-DDTHH:mm:ss+HH:MM
+//     // new Date().toISOString() gives ...Z (UTC), which GHL rejects with 422.
+//     // We will manually format it to UTC with explicit +00:00 offset.
+//     const now = new Date();
+//     const pad = (n) => (n < 10 ? '0' + n : n);
+//     const yyyy = now.getUTCFullYear();
+//     const MM = pad(now.getUTCMonth() + 1);
+//     const dd = pad(now.getUTCDate());
+//     const HH = pad(now.getUTCHours());
+//     const mm = pad(now.getUTCMinutes());
+//     const ss = pad(now.getUTCSeconds());
 
-    // Explicitly append +00:00
-    const eventStartTime = `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}+00:00`;
+//     // Explicitly append +00:00
+//     const eventStartTime = `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}+00:00`;
 
-    const response = await ghlAxios.post(`/contacts/${contactId}/workflow/${workflowId}`, {
-      "eventStartTime": eventStartTime
-    });
-    return response.data;
-  } catch (error) {
-    console.error('GHL Workflow Error:', error.response?.data || error.message);
-    // Don't throw here, strictly speaking, as it might block the main flow if not caught above. 
-    // But the caller catches it, so throwing is fine.
-    throw error;
-  }
-}
+//     const response = await ghlAxios.post(`/contacts/${contactId}/workflow/${workflowId}`, {
+//       "eventStartTime": eventStartTime
+//     });
+//     return response.data;
+//   } catch (error) {
+//     console.error('GHL Workflow Error:', error.response?.data || error.message);
+//     // Don't throw here, strictly speaking, as it might block the main flow if not caught above. 
+//     // But the caller catches it, so throwing is fine.
+//     throw error;
+//   }
+// }
 
 // --- GHL API Helpers ---
 
