@@ -260,17 +260,41 @@ async function handleRegistrationEvent(payload, eventType) {
     const globalTag = globalTagSetting?.value || 'Zoom Registration';
 
     // 6. Apply Automation (Add Tags)
-    const tags = [globalTag, eventType];
-    console.log(`🏷️  Adding tags (Global: "${globalTag}") to contact ${ghlContactId}:`, tags);
+    // Requested: Add global tag, event type, AND 'zoom registered'
+    const tags = [globalTag, eventType, 'zoom registered'];
+    console.log(`🏷️  Adding tags to contact ${ghlContactId}:`, tags);
     await addGHLTags(ghlContactId, tags);
+
+    // 7. Trigger Logic (Workflow)
+    if (process.env.GHL_WORKFLOW_ID) {
+      console.log(`⚙️  Triggering Workflow (${process.env.GHL_WORKFLOW_ID}) for contact ${ghlContactId}...`);
+      try {
+        await addContactToWorkflow(ghlContactId, process.env.GHL_WORKFLOW_ID);
+        console.log('✅ Workflow Triggered Successfully');
+      } catch (wfError) {
+        console.error('❌ Workflow Trigger Failed:', wfError.message);
+        // Don't throw, just log. The contact is already saved/tagged.
+      }
+    }
 
     console.log('🎉 processing complete for:', email);
 
   } catch (error) {
     console.error('❌ Error in handleRegistrationEvent:', error.message);
-    // Don't throw, just log so we don't crash the server loop? 
-    // Actually, maybe we should throw if we want retry logic from Zoom side (500 sends retry)
-    // But for now let's just log.
+  }
+}
+
+// ... existing code ...
+
+async function addContactToWorkflow(contactId, workflowId) {
+  try {
+    const response = await ghlAxios.post(`/contacts/${contactId}/workflow/${workflowId}`, {
+      "eventStartTime": new Date().toISOString()
+    });
+    return response.data;
+  } catch (error) {
+    console.error('GHL Workflow Error:', error.response?.data || error.message);
+    throw error;
   }
 }
 
